@@ -14,6 +14,8 @@ import * as KV from "./KV/index.ts";
 import * as Queue from "./Queue/index.ts";
 import * as R2 from "./R2/index.ts";
 import * as SecretsStore from "./SecretsStore/index.ts";
+import * as Tunnel from "./Tunnel/index.ts";
+import * as VpcService from "./VpcService/index.ts";
 import * as Workers from "./Workers/index.ts";
 import * as Workflows from "./Workers/Workflow.ts";
 
@@ -49,6 +51,8 @@ export const providers = () =>
       SecretsStore.SecretBindingPolicy,
       SecretsStore.SecretsStore,
       SecretsStore.Secret,
+      Tunnel.Tunnel,
+      VpcService.VpcService,
       Random,
       Workers.BindWorkerPolicy,
       Workers.FetchPolicy,
@@ -74,6 +78,8 @@ export const providers = () =>
         SecretsStore.SecretBindingPolicyLive,
         SecretsStore.SecretsStoreProvider(),
         SecretsStore.StoreSecretProvider(),
+        Tunnel.TunnelProvider(),
+        VpcService.VpcServiceProvider(),
         Workers.BindWorkerPolicyLive,
         Workers.FetchPolicyLive,
         Workers.WorkerProvider(),
