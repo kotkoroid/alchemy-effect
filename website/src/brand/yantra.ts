@@ -31,10 +31,13 @@ export const YANTRA_TRIANGLE_PATH =
 
 /** Brand color defaults — mirror tokens.css. */
 export const YANTRA_COLORS = {
-  /** Deep forest green — primary stroke / dot fill. */
+  /** Deep forest green — primary stroke. */
   stroke: "#3f5a2a",
+  /** Centroid dot — same deep moss as the stroke. The runtime Astro
+   * component overrides this with a CSS variable so it can flip to
+   * terracotta in dark mode. */
   dot: "#3f5a2a",
-  /** Parchment background (e.g. for favicon tiles, OG cards). */
+  /** Parchment background (e.g. for OG cards). */
   bg: "#f5efe3",
 } as const;
 
@@ -61,7 +64,7 @@ export interface YantraOptions {
    * inline Astro component on the homepage.
    */
   useCurrentColor?: boolean;
-};
+}
 
 /**
  * Returns a complete, standalone SVG string for the brand mark.
@@ -78,9 +81,7 @@ export function yantraSvg(opts: YantraOptions = {}): string {
   } = opts;
 
   const strokeColor = useCurrentColor ? "currentColor" : stroke;
-  const bgRect = bg
-    ? `<rect width="24" height="24" fill="${bg}"/>`
-    : "";
+  const bgRect = bg ? `<rect width="24" height="24" fill="${bg}"/>` : "";
 
   // `stroke-linejoin="round"` is critical: at a 60° interior angle (equilateral
   // triangle) a mitered join projects past the geometric vertex by ~1 stroke

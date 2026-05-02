@@ -2,7 +2,7 @@
 /**
  * Compute and apply a version bump across all publishable workspace packages.
  *
- * Writes: packages/{alchemy,better-auth}/package.json
+ * Writes: packages/{alchemy,better-auth,pr-package}/package.json
  * and (via `bun install`) bun.lock.
  *
  * Prints the chosen version to stdout. All progress messages go to stderr,
@@ -44,9 +44,13 @@ import { $ } from "bun";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const PUBLISHABLE_DIRS = ["alchemy", "better-auth"] as const;
+const PUBLISHABLE_DIRS = ["alchemy", "better-auth", "pr-package"] as const;
 
-const PUBLISHABLE_NAMES = ["alchemy", "@alchemy.run/better-auth"] as const;
+const PUBLISHABLE_NAMES = [
+  "alchemy",
+  "@alchemy.run/better-auth",
+  "@alchemy.run/pr-package",
+] as const;
 
 // Pre-release versions the beta/alpha auto-increment considers when deciding
 // whether to resume. Keeps the line `2.0.0-...` since that is the series
@@ -106,6 +110,14 @@ function compareSemver(a: string, b: string): number {
     if (pa[i]! !== pb[i]!) return pa[i]! - pb[i]!;
   }
   return 0;
+}
+
+async function getHeadTagVersion(): Promise<string | null> {
+  const r = await $`git describe --exact-match --tags HEAD`.nothrow().quiet();
+  if (r.exitCode !== 0) return null;
+  const tag = r.stdout.toString().trim();
+  if (!/^v\d+\.\d+\.\d+(-[\w.-]+)?$/.test(tag)) return null;
+  return tag.slice(1);
 }
 
 async function remoteTagExists(tag: string): Promise<boolean> {
@@ -239,17 +251,30 @@ if (!channel || !CHANNELS.includes(channel)) {
 }
 
 let newVersion: string;
-switch (channel) {
-  case "release":
-    newVersion = await resolveRelease(spec);
-    break;
-  case "beta":
-  case "alpha":
-    newVersion = await resolvePrerelease(channel, spec);
-    break;
-  case "tag":
-    newVersion = resolveTag(spec);
-    break;
+
+// Durability: if HEAD is already an exact release tag (commit-then-publish
+// flow committed and tagged on a previous attempt that failed before npm
+// publish completed), reuse that version instead of computing a new one.
+// Skipped for `tag` channel, where the explicit spec is authoritative.
+const headTagVersion = channel !== "tag" ? await getHeadTagVersion() : null;
+if (headTagVersion) {
+  console.error(
+    `HEAD is already tagged v${headTagVersion}; resuming with this version.`,
+  );
+  newVersion = headTagVersion;
+} else {
+  switch (channel) {
+    case "release":
+      newVersion = await resolveRelease(spec);
+      break;
+    case "beta":
+    case "alpha":
+      newVersion = await resolvePrerelease(channel, spec);
+      break;
+    case "tag":
+      newVersion = resolveTag(spec);
+      break;
+  }
 }
 
 for (const dir of PUBLISHABLE_DIRS) {

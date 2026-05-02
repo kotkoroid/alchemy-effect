@@ -15,9 +15,9 @@
  * arrows, em-dashes, fancy quotes, etc. all render verbatim.
  */
 
+import { Resvg } from "@resvg/resvg-js";
 import type { APIRoute, GetStaticPaths } from "astro";
 import { getCollection } from "astro:content";
-import { Resvg } from "@resvg/resvg-js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,10 +43,20 @@ interface Entry {
 // the source content renders verbatim with no glyph workarounds.
 // ────────────────────────────────────────────────────────────────────────────
 
-const fontsDir = fileURLToPath(new URL("../../../assets/fonts/", import.meta.url));
+const buildFontsDir = fileURLToPath(
+  new URL("../../../assets/fonts/", import.meta.url),
+);
+const publicFontsDir = fileURLToPath(
+  new URL("../../../public/fonts/", import.meta.url),
+);
 
-async function readFont(filename: string): Promise<Buffer> {
-  return fs.readFile(path.join(fontsDir, filename));
+async function readFont(
+  filename: string,
+  publicScope = false,
+): Promise<Buffer> {
+  return fs.readFile(
+    path.join(publicScope ? publicFontsDir : buildFontsDir, filename),
+  );
 }
 
 const fontsPromise = (async () => {
@@ -57,6 +67,9 @@ const fontsPromise = (async () => {
     displayLightIt,
     displayReg,
     displayRegIt,
+    displaySemi,
+    displaySemiIt,
+    tinos,
     mono,
     caveat,
   ] = await Promise.all([
@@ -66,6 +79,9 @@ const fontsPromise = (async () => {
     readFont("SourceSerif4Display-LightIt.ttf"),
     readFont("SourceSerif4Display-Regular.ttf"),
     readFont("SourceSerif4Display-It.ttf"),
+    readFont("SourceSerif4Display-Semibold.ttf"),
+    readFont("SourceSerif4Display-SemiboldIt.ttf"),
+    readFont("Tinos-Regular.ttf", true),
     readFont("JetBrainsMono-Regular.ttf"),
     readFont("Caveat-Regular.ttf"),
   ]);
@@ -80,10 +96,52 @@ const fontsPromise = (async () => {
     // website hero, which uses the variable font's display optical axis
     // automatically. Light (300) is what the hero renders at ~72px;
     // Regular (400) is the default fallback.
-    { name: "Source Serif 4 Display", data: displayLight, weight: 300, style: "normal" },
-    { name: "Source Serif 4 Display", data: displayLightIt, weight: 300, style: "italic" },
-    { name: "Source Serif 4 Display", data: displayReg, weight: 400, style: "normal" },
-    { name: "Source Serif 4 Display", data: displayRegIt, weight: 400, style: "italic" },
+    {
+      name: "Source Serif 4 Display",
+      data: displayLight,
+      weight: 300,
+      style: "normal",
+    },
+    {
+      name: "Source Serif 4 Display",
+      data: displayLightIt,
+      weight: 300,
+      style: "italic",
+    },
+    {
+      name: "Source Serif 4 Display",
+      data: displayReg,
+      weight: 400,
+      style: "normal",
+    },
+    {
+      name: "Source Serif 4 Display",
+      data: displayRegIt,
+      weight: 400,
+      style: "italic",
+    },
+
+    // Semibold (600) approximates the website hero's runtime "Medium"
+    // (500) — Adobe doesn't ship a static Medium Display cut, so we
+    // snap up. Used by the title.
+    {
+      name: "Source Serif 4 Display",
+      data: displaySemi,
+      weight: 600,
+      style: "normal",
+    },
+    {
+      name: "Source Serif 4 Display",
+      data: displaySemiIt,
+      weight: 600,
+      style: "italic",
+    },
+
+    // Tinos — TNR-equivalent. Used only for the marketing arrow glyph
+    // so the OG matches the website's font stack (which lands on Times
+    // New Roman for U+2192). See OgCard.tsx — this family is opted into
+    // explicitly via fontFamily on individual title spans.
+    { name: "Tinos", data: tinos, weight: 400, style: "normal" },
 
     { name: "JetBrains Mono", data: mono, weight: 400, style: "normal" },
     { name: "Caveat", data: caveat, weight: 400, style: "normal" },
@@ -107,7 +165,12 @@ const MARKETING_PAGES: Record<string, Omit<Entry, "slug" | "kind">> = {
   index: {
     title: [
       { text: "Zero", italic: true, accent: true },
-      { text: "\u00A0\u2192\u00A0production." },
+      // Arrow rendered from Tinos (TNR-equivalent) so the OG mirrors
+      // the website, where this glyph falls through the font stack to
+      // Times New Roman. Non-breaking spaces flank it so the line
+      // doesn't break around the arrow.
+      { text: "\u00A0\u2192\u00A0", font: "tinos" },
+      { text: "production." },
     ],
     description:
       "TypeScript IaC on Effect. Stand up your whole cloud in one program, type-check the IAM, hot-reload it locally, run tests against the real cloud, preview every PR.",
@@ -133,7 +196,7 @@ function classifyDoc(slug: string): { kind: OgCardKind; eyebrow: string } {
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const docs = await getCollection("docs");
-  const docPaths = docs.map((entry) => {
+  const docPaths = docs.map((entry: any) => {
     const slug = (entry as { slug?: string; id?: string }).slug ?? entry.id;
     const meta = classifyDoc(slug);
     const data = entry.data as { title?: string; description?: string };
@@ -149,16 +212,18 @@ export const getStaticPaths: GetStaticPaths = async () => {
     };
   });
 
-  const marketingPaths = Object.entries(MARKETING_PAGES).map(([slug, meta]) => ({
-    params: { slug },
-    props: {
-      slug,
-      title: meta.title,
-      description: meta.description,
-      kind: "marketing" as const,
-      eyebrow: meta.eyebrow,
-    } satisfies Entry,
-  }));
+  const marketingPaths = Object.entries(MARKETING_PAGES).map(
+    ([slug, meta]) => ({
+      params: { slug },
+      props: {
+        slug,
+        title: meta.title,
+        description: meta.description,
+        kind: "marketing" as const,
+        eyebrow: meta.eyebrow,
+      } satisfies Entry,
+    }),
+  );
 
   return [...marketingPaths, ...docPaths];
 };
@@ -181,7 +246,7 @@ export const GET: APIRoute = async ({ props }) => {
     .render()
     .asPng();
 
-  return new Response(png, {
+  return new Response(png as any, {
     headers: {
       "Content-Type": "image/png",
       "Cache-Control": "public, max-age=31536000, immutable",

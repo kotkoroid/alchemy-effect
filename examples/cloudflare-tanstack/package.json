@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alchemy-run/alchemy"
+    "url": "https://github.com/alchemy-run/alchemy-effect"
   },
   "type": "module",
   "scripts": {
@@ -13,7 +13,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "alchemy deploy",
-    "destroy": "alchemy destroy"
+    "destroy": "alchemy destroy",
+    "test": "bun test"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.167.4",

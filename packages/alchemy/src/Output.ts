@@ -353,8 +353,7 @@ function proxy(self: any): any {
       prop === ExprSymbol || prop === inspect ? true : prop in self,
     get: (target, prop) =>
       prop === Symbol.toPrimitive
-        ? (hint: string) =>
-            hint === "number" ? Number.NaN : self.toString()
+        ? (hint: string) => (hint === "number" ? Number.NaN : self.toString())
         : prop === ExprSymbol
           ? self
           : prop === inspect
@@ -500,7 +499,9 @@ export const upstreamAny = (
 ): {
   [ID in string]: Resource;
 } => {
-  if (isExpr(value)) {
+  if (isResource(value)) {
+    return { [value.FQN]: value as Resource };
+  } else if (isExpr(value)) {
     return upstream(value);
   } else if (Array.isArray(value)) {
     return Object.assign({}, ...value.map(resolveUpstream));
@@ -518,7 +519,11 @@ export const upstreamAny = (
 
 // TODO(sam): add a type
 export const upstream = <E extends Output<any, any>>(expr: E): any => {
-  if (isResourceExpr(expr)) {
+  if (isResource(expr)) {
+    return {
+      [(expr as unknown as Resource).FQN]: expr,
+    };
+  } else if (isResourceExpr(expr)) {
     return {
       [expr.src.FQN]: expr.src,
     };
@@ -542,6 +547,8 @@ export const upstream = <E extends Output<any, any>>(expr: E): any => {
 export const resolveUpstream = <const A>(value: A): any => {
   if (isPrimitive(value)) {
     return {} as any;
+  } else if (isResource(value)) {
+    return { [(value as unknown as Resource).FQN]: value } as any;
   } else if (isOutput(value)) {
     return upstream(value) as any;
   } else if (Array.isArray(value)) {

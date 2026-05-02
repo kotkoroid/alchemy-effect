@@ -1,7 +1,5 @@
 import { useState } from "react";
-
-const PROMPT =
-  "Read https://alchemy.run/getting-started and help me scaffold an Alchemy app.";
+import { AGENT_PROMPT as PROMPT } from "./agentPrompt";
 
 export default function CopyForAgent() {
   const [copied, setCopied] = useState(false);
@@ -34,16 +32,9 @@ export default function CopyForAgent() {
         onClick={onCopy}
         className="alc-copy-agent__btn"
         aria-label={copied ? "Copied to clipboard" : "Copy prompt to clipboard"}
+        title={copied ? "Copied" : "Copy prompt"}
       >
-        {copied ? (
-          <>
-            <CheckIcon /> Copied
-          </>
-        ) : (
-          <>
-            <CopyIcon /> Copy
-          </>
-        )}
+        {copied ? <CheckIcon /> : <CopyIcon />}
       </button>
     </div>
   );

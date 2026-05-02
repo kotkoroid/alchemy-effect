@@ -31,6 +31,24 @@ export const cliCounter = Metric.counter("alchemy.cli.invocations", {
 });
 
 /**
+ * Counter for Cloudflare State Store bootstrap/deploy operations.
+ * Tagged per call with `op` (e.g. `deploy`) and `status`
+ * (`success`/`error`) so that the deploy success rate of the
+ * state store itself can be tracked separately from regular
+ * resource lifecycle ops.
+ */
+export const stateStoreCounter = Metric.counter(
+  "alchemy.state_store.operations",
+  {
+    description:
+      "Number of Cloudflare State Store deploy/bootstrap operations dispatched by alchemy.",
+    incremental: true,
+  },
+);
+
+export type StateStoreOp = "deploy";
+
+/**
  * Wraps a resource lifecycle Effect to record a counter + timer entry,
  * tagged with `resource_type`, `op`, and `status` (`success`/`error`).
  *
@@ -75,12 +93,27 @@ export const recordCli =
       ),
     );
 
-export type ResourceOp =
-  | "precreate"
-  | "create"
-  | "update"
-  | "delete"
-  | "read";
+/**
+ * Wraps a Cloudflare State Store deploy/bootstrap Effect to bump
+ * {@link stateStoreCounter} with the outcome (`success`/`error`),
+ * tagged with the given `op`.
+ */
+export const recordStateStoreOp =
+  (op: StateStoreOp) =>
+  <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    self.pipe(
+      Effect.onExit((exit) =>
+        Metric.update(
+          Metric.withAttributes(stateStoreCounter, {
+            op,
+            status: Exit.isSuccess(exit) ? "success" : "error",
+          }),
+          1,
+        ),
+      ),
+    );
+
+export type ResourceOp = "precreate" | "create" | "update" | "delete" | "read";
 
 const elapsed = (startNs: bigint): Duration.Duration =>
   Duration.nanos(process.hrtime.bigint() - startNs);

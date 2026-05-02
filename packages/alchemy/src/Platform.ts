@@ -180,7 +180,7 @@ export const Platform = <
     string,
     | {
         env?: Record<string, any>;
-        exports?: string[];
+        exports?: string[] | Record<string, any>;
       }
     | undefined
   >,
@@ -326,7 +326,7 @@ export const Platform = <
 
               yield* impl.pipe(
                 Effect.flatMap((impl) =>
-                  impl
+                  impl?.fetch
                     ? (executionContext.serve?.(impl.fetch) ??
                       Effect.die("No serve handler"))
                     : Effect.void,
