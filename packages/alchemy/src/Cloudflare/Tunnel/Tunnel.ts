@@ -89,13 +89,12 @@ export type Tunnel = Resource<
   {
     tunnelId: string;
     tunnelName: string;
-    accountTag: string;
+    accountTag: string | undefined;
     accountId: string;
     createdAt: string | undefined;
     deletedAt: string | undefined;
     configSrc: "cloudflare" | "local";
     token: Redacted.Redacted<string>;
-    tunnelSecret: Redacted.Redacted<string> | undefined;
   },
   never,
   Providers
@@ -153,11 +152,12 @@ export const TunnelProvider = () =>
           yield* putConfiguration({
             accountId,
             tunnelId,
-            // Catch-all rules omit `hostname`; the SDK schema is stricter than
-            // the API, so coerce through `any`.
             config: {
-              ingress: ingress as any,
-              originRequest: originRequest as any,
+              // Catch-all rules legitimately omit `hostname`, but the upstream
+              // OpenAPI spec marks it as required. Cast just the ingress array
+              // until distilled relaxes the schema.
+              ingress: ingress as { hostname: string; service: string }[],
+              originRequest,
             },
           });
         });
@@ -199,7 +199,10 @@ export const TunnelProvider = () =>
           if (oldSecret !== newSecret) {
             return { action: "replace" } as const;
           }
-          if ((olds.configSrc ?? "cloudflare") !== (news.configSrc ?? "cloudflare")) {
+          if (
+            (olds.configSrc ?? "cloudflare") !==
+            (news.configSrc ?? "cloudflare")
+          ) {
             return { action: "replace" } as const;
           }
         }),
@@ -216,12 +219,12 @@ export const TunnelProvider = () =>
             configSrc,
             tunnelSecret,
           }).pipe(
-            Effect.catch((err: unknown) =>
+            Effect.catch((err) =>
               Effect.gen(function* () {
-                if (!news.adopt) return yield* Effect.fail(err as never);
+                if (!news.adopt) return yield* Effect.fail(err);
                 const existing = yield* findTunnelByName(name);
                 if (!existing || !existing.id) {
-                  return yield* Effect.fail(err as never);
+                  return yield* Effect.fail(err);
                 }
                 return existing;
               }),
@@ -244,13 +247,12 @@ export const TunnelProvider = () =>
           return {
             tunnelId: created.id!,
             tunnelName: created.name ?? name,
-            accountTag: created.accountTag ?? "",
+            accountTag: created.accountTag ?? undefined,
             accountId,
             createdAt: created.createdAt ?? undefined,
             deletedAt: created.deletedAt ?? undefined,
             configSrc,
             token: Redacted.make(token),
-            tunnelSecret: tunnelSecret ? Redacted.make(tunnelSecret) : undefined,
           };
         }),
         update: Effect.fn(function* ({ news, output }) {
@@ -291,13 +293,12 @@ export const TunnelProvider = () =>
                     accountId: output.accountId,
                     createdAt: t.createdAt ?? output.createdAt,
                     deletedAt: t.deletedAt ?? output.deletedAt,
-                    configSrc:
-                      ((t as { configSrc?: "cloudflare" | "local" | null })
-                        .configSrc ??
-                        output.configSrc ??
-                        "cloudflare") as "cloudflare" | "local",
+                    configSrc: ((
+                      t as { configSrc?: "cloudflare" | "local" | null }
+                    ).configSrc ??
+                      output.configSrc ??
+                      "cloudflare") as "cloudflare" | "local",
                     token: Redacted.make(token),
-                    tunnelSecret: output.tunnelSecret,
                   })),
                 ),
               ),
@@ -314,15 +315,14 @@ export const TunnelProvider = () =>
           return {
             tunnelId: existing.id,
             tunnelName: existing.name ?? name,
-            accountTag: existing.accountTag ?? "",
+            accountTag: existing.accountTag ?? undefined,
             accountId,
             createdAt: existing.createdAt ?? undefined,
             deletedAt: existing.deletedAt ?? undefined,
-            configSrc:
-              ((existing as { configSrc?: "cloudflare" | "local" | null })
-                .configSrc ?? "cloudflare") as "cloudflare" | "local",
+            configSrc: ((
+              existing as { configSrc?: "cloudflare" | "local" | null }
+            ).configSrc ?? "cloudflare") as "cloudflare" | "local",
             token: Redacted.make(token),
-            tunnelSecret: olds?.tunnelSecret,
           };
         }),
       };

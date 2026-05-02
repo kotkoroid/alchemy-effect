@@ -120,64 +120,6 @@ export type VpcService = Resource<
  */
 export const VpcService = Resource<VpcService>("Cloudflare.VpcService");
 
-const formatVpcService = (
-  service: {
-    serviceId?: string | null;
-    name: string;
-    type: "http";
-    createdAt?: string | null;
-    updatedAt?: string | null;
-    httpPort?: number | null;
-    httpsPort?: number | null;
-    host: connectivity.GetDirectoryServiceResponse["host"];
-  },
-  accountId: string,
-): VpcServiceAttributes => {
-  let host: VpcService.Host;
-  if ("hostname" in service.host) {
-    host = {
-      hostname: service.host.hostname,
-      resolverNetwork: {
-        tunnelId: service.host.resolverNetwork.tunnelId,
-        resolverIps: service.host.resolverNetwork.resolverIps ?? undefined,
-      },
-    };
-  } else if ("ipv4" in service.host && "ipv6" in service.host) {
-    host = {
-      ipv4: service.host.ipv4,
-      ipv6: service.host.ipv6,
-      network: { tunnelId: service.host.network.tunnelId },
-    };
-  } else if ("ipv4" in service.host) {
-    host = {
-      ipv4: service.host.ipv4,
-      network: { tunnelId: service.host.network.tunnelId },
-    };
-  } else {
-    host = {
-      ipv6: service.host.ipv6,
-      network: { tunnelId: service.host.network.tunnelId },
-    };
-  }
-  return {
-    serviceId: service.serviceId!,
-    serviceName: service.name,
-    serviceType: service.type,
-    httpPort: service.httpPort ?? undefined,
-    httpsPort: service.httpsPort ?? undefined,
-    host,
-    accountId,
-    createdAt: service.createdAt
-      ? new Date(service.createdAt).getTime()
-      : undefined,
-    updatedAt: service.updatedAt
-      ? new Date(service.updatedAt).getTime()
-      : undefined,
-  };
-};
-
-export { formatVpcService };
-
 export const VpcServiceProvider = () =>
   Provider.effect(
     VpcService,
@@ -196,13 +138,11 @@ export const VpcServiceProvider = () =>
         });
 
       const findServiceByName = (name: string) =>
-        listServices
-          .items({ accountId })
-          .pipe(
-            Stream.filter((s) => s.name === name),
-            Stream.runHead,
-            Effect.map(Option.getOrUndefined),
-          );
+        listServices.items({ accountId }).pipe(
+          Stream.filter((s) => s.name === name),
+          Stream.runHead,
+          Effect.map(Option.getOrUndefined),
+        );
 
       return {
         stables: ["serviceId", "accountId"],
@@ -287,3 +227,59 @@ export const VpcServiceProvider = () =>
       };
     }),
   );
+
+export const formatVpcService = (
+  service: {
+    serviceId?: string | null;
+    name: string;
+    type: "http";
+    createdAt?: string | null;
+    updatedAt?: string | null;
+    httpPort?: number | null;
+    httpsPort?: number | null;
+    host: connectivity.GetDirectoryServiceResponse["host"];
+  },
+  accountId: string,
+): VpcServiceAttributes => {
+  let host: VpcService.Host;
+  if ("hostname" in service.host) {
+    host = {
+      hostname: service.host.hostname,
+      resolverNetwork: {
+        tunnelId: service.host.resolverNetwork.tunnelId,
+        resolverIps: service.host.resolverNetwork.resolverIps ?? undefined,
+      },
+    };
+  } else if ("ipv4" in service.host && "ipv6" in service.host) {
+    host = {
+      ipv4: service.host.ipv4,
+      ipv6: service.host.ipv6,
+      network: { tunnelId: service.host.network.tunnelId },
+    };
+  } else if ("ipv4" in service.host) {
+    host = {
+      ipv4: service.host.ipv4,
+      network: { tunnelId: service.host.network.tunnelId },
+    };
+  } else {
+    host = {
+      ipv6: service.host.ipv6,
+      network: { tunnelId: service.host.network.tunnelId },
+    };
+  }
+  return {
+    serviceId: service.serviceId!,
+    serviceName: service.name,
+    serviceType: service.type,
+    httpPort: service.httpPort ?? undefined,
+    httpsPort: service.httpsPort ?? undefined,
+    host,
+    accountId,
+    createdAt: service.createdAt
+      ? new Date(service.createdAt).getTime()
+      : undefined,
+    updatedAt: service.updatedAt
+      ? new Date(service.updatedAt).getTime()
+      : undefined,
+  };
+};
