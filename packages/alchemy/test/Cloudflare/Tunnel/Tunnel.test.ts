@@ -5,11 +5,9 @@ import * as zeroTrust from "@distilled.cloud/cloudflare/zero-trust";
 import { expect } from "@effect/vitest";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import { MinimumLogLevel } from "effect/References";
 import * as Schedule from "effect/Schedule";
-import * as Stream from "effect/Stream";
 
 const { test } = Test.make({ providers: Cloudflare.providers() });
 
@@ -147,21 +145,16 @@ const waitForTunnelToBeDeleted = Effect.fn(function* (
   tunnelId: string,
   accountId: string,
 ) {
-  yield* zeroTrust.listTunnels
-    .items({ accountId, isDeleted: false, tunTypes: ["cfd_tunnel"] })
-    .pipe(
-      Stream.filter((t) => t.id === tunnelId),
-      Stream.runHead,
-      Effect.flatMap((option) =>
-        Option.isSome(option)
-          ? Effect.fail(new TunnelStillExists())
-          : Effect.void,
-      ),
-      Effect.retry({
-        while: (e): e is TunnelStillExists => e instanceof TunnelStillExists,
-        schedule: Schedule.exponential(100),
-      }),
-    );
+  yield* zeroTrust.getTunnelCloudflared({ accountId, tunnelId }).pipe(
+    Effect.flatMap((t) =>
+      t.deletedAt ? Effect.void : Effect.fail(new TunnelStillExists()),
+    ),
+    Effect.retry({
+      while: (e): e is TunnelStillExists => e instanceof TunnelStillExists,
+      schedule: Schedule.exponential(100),
+    }),
+    Effect.catch(() => Effect.void),
+  );
 });
 
 class TunnelStillExists extends Data.TaggedError("TunnelStillExists") {}
