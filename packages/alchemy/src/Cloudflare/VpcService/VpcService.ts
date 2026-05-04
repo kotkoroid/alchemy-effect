@@ -134,7 +134,11 @@ export const VpcServiceProvider = () =>
       const createServiceName = (id: string, name: string | undefined) =>
         Effect.gen(function* () {
           if (name) return name;
-          return yield* createPhysicalName({ id });
+          return yield* createPhysicalName({
+            id,
+            lowercase: true,
+            maxLength: 63,
+          });
         });
 
       const findServiceByName = (name: string) =>
