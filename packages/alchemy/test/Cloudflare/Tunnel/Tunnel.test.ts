@@ -1,6 +1,6 @@
 import * as Cloudflare from "@/Cloudflare";
 import { CloudflareEnvironment } from "@/Cloudflare/CloudflareEnvironment";
-import { destroy, test } from "@/Test/Vitest";
+import * as Test from "@/Test/Vitest";
 import * as zeroTrust from "@distilled.cloud/cloudflare/zero-trust";
 import { expect } from "@effect/vitest";
 import * as Data from "effect/Data";
@@ -11,19 +11,20 @@ import { MinimumLogLevel } from "effect/References";
 import * as Schedule from "effect/Schedule";
 import * as Stream from "effect/Stream";
 
+const { test } = Test.make({ providers: Cloudflare.providers() });
+
 const logLevel = Effect.provideService(
   MinimumLogLevel,
   process.env.DEBUG ? "Debug" : "Info",
 );
 
-test(
-  "create and delete tunnel with default props",
+test.provider("create and delete tunnel with default props", (stack) =>
   Effect.gen(function* () {
     const { accountId } = yield* CloudflareEnvironment;
 
-    yield* destroy();
+    yield* stack.destroy();
 
-    const tunnel = yield* test.deploy(
+    const tunnel = yield* stack.deploy(
       Effect.gen(function* () {
         return yield* Cloudflare.Tunnel("DefaultTunnel");
       }),
@@ -41,20 +42,19 @@ test(
     expect(actualTunnel.id).toEqual(tunnel.tunnelId);
     expect(actualTunnel.name).toEqual(tunnel.tunnelName);
 
-    yield* destroy();
+    yield* stack.destroy();
 
     yield* waitForTunnelToBeDeleted(tunnel.tunnelId, accountId);
-  }).pipe(Effect.provide(Cloudflare.providers()), logLevel),
+  }).pipe(logLevel),
 );
 
-test(
-  "create, update, delete tunnel with ingress",
+test.provider("create, update, delete tunnel with ingress", (stack) =>
   Effect.gen(function* () {
     const { accountId } = yield* CloudflareEnvironment;
 
-    yield* destroy();
+    yield* stack.destroy();
 
-    const tunnel = yield* test.deploy(
+    const tunnel = yield* stack.deploy(
       Effect.gen(function* () {
         return yield* Cloudflare.Tunnel("WebTunnel", {
           ingress: [
@@ -78,8 +78,7 @@ test(
       "http://localhost:8080",
     );
 
-    // Update with new ingress rules
-    const updated = yield* test.deploy(
+    const updated = yield* stack.deploy(
       Effect.gen(function* () {
         return yield* Cloudflare.Tunnel("WebTunnel", {
           ingress: [
@@ -111,20 +110,19 @@ test(
       connectTimeout: 30,
     });
 
-    yield* destroy();
+    yield* stack.destroy();
 
     yield* waitForTunnelToBeDeleted(tunnel.tunnelId, accountId);
-  }).pipe(Effect.provide(Cloudflare.providers()), logLevel),
+  }).pipe(logLevel),
 );
 
-test(
-  "local configuration mode skips configuration",
+test.provider("local configuration mode skips configuration", (stack) =>
   Effect.gen(function* () {
     const { accountId } = yield* CloudflareEnvironment;
 
-    yield* destroy();
+    yield* stack.destroy();
 
-    const tunnel = yield* test.deploy(
+    const tunnel = yield* stack.deploy(
       Effect.gen(function* () {
         return yield* Cloudflare.Tunnel("LocalTunnel", {
           configSrc: "local",
@@ -139,10 +137,10 @@ test(
 
     expect(tunnel.configSrc).toEqual("local");
 
-    yield* destroy();
+    yield* stack.destroy();
 
     yield* waitForTunnelToBeDeleted(tunnel.tunnelId, accountId);
-  }).pipe(Effect.provide(Cloudflare.providers()), logLevel),
+  }).pipe(logLevel),
 );
 
 const waitForTunnelToBeDeleted = Effect.fn(function* (

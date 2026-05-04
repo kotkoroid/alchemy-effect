@@ -1,20 +1,21 @@
 import * as Cloudflare from "@/Cloudflare";
-import { destroy, test } from "@/Test/Vitest";
+import * as Test from "@/Test/Vitest";
 import { expect } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { MinimumLogLevel } from "effect/References";
+
+const { test } = Test.make({ providers: Cloudflare.providers() });
 
 const logLevel = Effect.provideService(
   MinimumLogLevel,
   process.env.DEBUG ? "Debug" : "Info",
 );
 
-test(
-  "reference vpc service by name and by id",
+test.provider("reference vpc service by name and by id", (stack) =>
   Effect.gen(function* () {
-    yield* destroy();
+    yield* stack.destroy();
 
-    const service = yield* test.deploy(
+    const service = yield* stack.deploy(
       Effect.gen(function* () {
         const tunnel = yield* Cloudflare.Tunnel("RefTunnel", {
           ingress: [{ service: "http://localhost:8080" }],
@@ -44,6 +45,6 @@ test(
     expect(refById.serviceId).toEqual(service.serviceId);
     expect(refById.serviceName).toEqual(service.serviceName);
 
-    yield* destroy();
-  }).pipe(Effect.provide(Cloudflare.providers()), logLevel),
+    yield* stack.destroy();
+  }).pipe(logLevel),
 );
