@@ -152,13 +152,7 @@ export const TunnelProvider = () =>
           yield* putConfiguration({
             accountId,
             tunnelId,
-            config: {
-              // Catch-all rules legitimately omit `hostname`, but the upstream
-              // OpenAPI spec marks it as required. Cast just the ingress array
-              // until distilled relaxes the schema.
-              ingress: ingress as { hostname: string; service: string }[],
-              originRequest,
-            },
+            config: { ingress, originRequest },
           });
         });
 
@@ -206,7 +200,7 @@ export const TunnelProvider = () =>
             return { action: "replace" } as const;
           }
         }),
-        create: Effect.fn(function* ({ id, news }) {
+        create: Effect.fn(function* ({ id, news = {} }) {
           const name = yield* createTunnelName(id, news.name);
           const configSrc = news.configSrc ?? "cloudflare";
           const tunnelSecret = news.tunnelSecret
@@ -255,7 +249,7 @@ export const TunnelProvider = () =>
             token: Redacted.make(token),
           };
         }),
-        update: Effect.fn(function* ({ news, output }) {
+        update: Effect.fn(function* ({ news = {}, output }) {
           const configSrc = news.configSrc ?? output.configSrc;
           if (configSrc !== "local") {
             yield* writeConfiguration(

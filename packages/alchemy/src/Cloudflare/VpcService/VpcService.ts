@@ -146,7 +146,7 @@ export const VpcServiceProvider = () =>
 
       return {
         stables: ["serviceId", "accountId"],
-        diff: Effect.fn(function* ({ id, olds = {} as any, news, output }) {
+        diff: Effect.fn(function* ({ id, olds, news, output }) {
           if (!isResolved(news)) return undefined;
           if ((output?.accountId ?? accountId) !== accountId) {
             return { action: "replace" } as const;
@@ -154,7 +154,7 @@ export const VpcServiceProvider = () =>
           const name = yield* createServiceName(id, news.name);
           const oldName = output?.serviceName
             ? output.serviceName
-            : yield* createServiceName(id, olds.name);
+            : yield* createServiceName(id, olds?.name);
           if (name !== oldName) {
             return { action: "update" } as const;
           }
